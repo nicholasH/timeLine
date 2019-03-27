@@ -92,6 +92,13 @@ async def start(ctx):
     await bot.say(playerhands)
     await bot.say("Is this getting annoying yet?")
 
+@bot.command(pass_context=True)
+async def place(ctx,*args):
+    if(args[1] == "before"):
+        timelines.before(ctx.message.author ,args[0], args[2])
+    elif(args[1] == "after"):
+        timelines.after(ctx.message.author ,args[0], args[2])
+
 
 
 

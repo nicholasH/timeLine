@@ -1,42 +1,81 @@
-import DBHandler
-import random
+import plotly as py
+import plotly.graph_objs as go
+import networkx as nx
 
-DBHandler.destroyDB()
-DBHandler.createDB()
+G=nx.random_geometric_graph(200,0.125)
+pos=nx.get_node_attributes(G,'pos')
 
+dmin=1
+ncenter=0
+for n in pos:
+    x,y=pos[n]
+    d=(x-0.5)**2+(y-0.5)**2
+    if d<dmin:
+        ncenter=n
+        dmin=d
 
+p=nx.single_source_shortest_path_length(G,ncenter)
 
-def realcard():
-    #DBHandler.addEvent("start of the revolutionary war","1775","","")
-    #DBHandler.addEvent("USA lands on the moon","1969","","")
+edge_trace = go.Scatter(
+    x=[],
+    y=[],
+    line=dict(width=0.5,color='#888'),
+    hoverinfo='none',
+    mode='lines')
 
+for edge in G.edges():
+    x0, y0 = G.node[edge[0]]['pos']
+    x1, y1 = G.node[edge[1]]['pos']
+    edge_trace['x'] += tuple([x0, x1, None])
+    edge_trace['y'] += tuple([y0, y1, None])
 
-    #DBHandler.addEvent("Fall of the berlin wall","1991","","")
-    #DBHandler.addEvent("Fall of the rome","476","","")
-    #DBHandler.addEvent("Fall of the Soviet Union","1991","","")
+node_trace = go.Scatter(
+    x=[],
+    y=[],
+    text=[],
+    mode='markers',
+    hoverinfo='text',
+    marker=dict(
+        showscale=True,
+        # colorscale options
+        #'Greys' | 'YlGnBu' | 'Greens' | 'YlOrRd' | 'Bluered' | 'RdBu' |
+        #'Reds' | 'Blues' | 'Picnic' | 'Rainbow' | 'Portland' | 'Jet' |
+        #'Hot' | 'Blackbody' | 'Earth' | 'Electric' | 'Viridis' |
+        colorscale='YlGnBu',
+        reversescale=True,
+        color=[],
+        size=10,
+        colorbar=dict(
+            thickness=15,
+            title='Node Connections',
+            xanchor='left',
+            titleside='right'
+        ),
+        line=dict(width=2)))
 
-    #DBHandler.addEvent("Treaty of versailles signed","1919","","")
-    #DBHandler.addEvent("Treaty of paris","476","","")
+for node in G.nodes():
+    x, y = G.node[node]['pos']
+    node_trace['x'] += tuple([x])
+    node_trace['y'] += tuple([y])
 
-    #DBHandler.addEvent("Assassination of julius Caesar", "44","bc","")
-    #DBHandler.addEvent("Construction of the Great Pyramid of Giza", "2560","bc","")
-    #DBHandler.addEvent("Founding of rome","753","bc","")
+for node, adjacencies in enumerate(G.adjacency()):
+    node_trace['marker']['color']+=tuple([len(adjacencies[1])])
+    node_info = '# of connections: '+str(len(adjacencies[1]))
+    node_trace['text']+=tuple([node_info])
 
-    #DBHandler.addEvent("Curiosity mars rover landed","2012","","")
-    #DBHandler.addEvent("Sputnik launched","2057","","")
-    return
+fig = go.Figure(data=[edge_trace, node_trace],
+             layout=go.Layout(
+                title='<br>Network graph made with Python',
+                titlefont=dict(size=16),
+                showlegend=False,
+                hovermode='closest',
+                margin=dict(b=20,l=5,r=5,t=40),
+                annotations=[ dict(
+                    text="Python code: <a href='https://plot.ly/ipython-notebooks/network-graphs/'> https://plot.ly/ipython-notebooks/network-graphs/</a>",
+                    showarrow=False,
+                    xref="paper", yref="paper",
+                    x=0.005, y=-0.002 ) ],
+                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                yaxis=dict(showgrid=False, zeroline=False, showticklabels=False)))
 
-def testCardsGenerator():
-    for x in range(1,100):
-        DBHandler.addEvent(str(x), str(x), "", "")
-    for x in range(1,100):
-        DBHandler.addEvent(str(x) + "bc", str(x), "bc", "")
-
-testCardsGenerator()
-l =  DBHandler.getPlayingDeck()
-
-print(l)
-
-print(random.shuffle(l))
-
-print(l)
+py.offline.plot(fig, filename='networkx')
