@@ -1,18 +1,16 @@
-import ctx as ctx
 import discord
-from discord import ChannelType, Channel
-from discord import message
+
 from discord.ext import commands
 import random
 import timelines
 
-from discord.utils import find
 
 import secrets
 description = '''An example bot to showcase the discord.ext.commands extension
 module.
 There are a number of utility commands being showcased here.'''
-bot = commands.Bot(command_prefix='#', description=description)
+bot = commands.Bot(command_prefix='`', description=description)
+@commands.bot_has_permissions(read_messages = True)
 
 
 @bot.event
@@ -21,7 +19,6 @@ async def on_ready():
     print(bot.user.name)
     print(bot.user.id)
     print('------')
-
 
 
 @bot.command()
@@ -68,38 +65,85 @@ async def hello(message):
 
 @bot.command(pass_context=True)
 async def start(ctx):
-    await bot.say('starting a game of timelines')
-    voice_channel = discord.utils.get(ctx.message.server.channels, name="General", type=discord.ChannelType.voice)
-    members = voice_channel.voice_members
+    timeLineChannel = discord.utils.get(bot.get_all_channels(), name='timeline-game')
+
+    async for message in timeLineChannel.history(limit=1000):
+        await message.delete()
+        print("deleted message")
+
+
+    text_channel = ctx.channel
+    await text_channel.send("starting a game of time lines")
+
+    voice_channel = ctx.author.voice.channel
+    members = voice_channel.members
 
     memString = ""
     for mem in members:
         memString = memString + ", " + mem.name
 
-    await bot.say('starting a game of timelines with' + memString)
+    await timeLineChannel.send('starting a game of timelines with' + memString)
 
 
     await timelines.startGame(members)
     timeLineString = await timelines.printTimeline()
 
-    await bot.say("the time line is \n" + timeLineString)
+    await timeLineChannel.send("the time line is \n" + timeLineString)
 
-    playerhands = ""
+    playerhands = "hands \n"
     for mem in members:
-        playerhands += mem.name + " has his in hands \n"
-        playerhands += str(await timelines.playerHand(mem))
+        playerhands += mem.name + " has this in hands \n"
+        playerhands += str(await timelines.printPlayerHand(mem))
+        playerhands += "\n_______________________________________________________"
 
-    await bot.say(playerhands)
-    await bot.say("Is this getting annoying yet?")
+    await timeLineChannel.send(playerhands)
+
+
+#attemps to places a card in order
+#place 1 befor 5
+@bot.command(pass_context=True)
+async def put(ctx,*args):
+    timeLineChannel = discord.utils.get(bot.get_all_channels(), name='timeline-game')
+
+    result = False
+    if(args[1] == "before"):
+        result = await timelines.before(ctx.message.author ,int(args[0]), int(args[2]))
+    elif(args[1] == "after"):
+        result = await timelines.after(ctx.message.author ,int(args[0]), int(args[2]))
+
+    if(result):
+        await timeLineChannel.send(ctx.message.author.name + " is correct")
+        await timeLineChannel.send(await timelines.printTimeline())
+    else:
+        await timeLineChannel.send(ctx.message.author.name + " incorrect")
+
+#prints players hand.
+@bot.command(pass_context=True)
+async def hand(ctx,*args):
+    timeLineChannel = discord.utils.get(bot.get_all_channels(), name='timeline-game')
+    await timeLineChannel.send("Your hand is")
+    await timeLineChannel.send(await timelines.printPlayerHand(ctx.message.author))
+
+#prints players hand.
+@bot.command(pass_context=True)
+async def tl(ctx,*args):
+    timeLineChannel = discord.utils.get(bot.get_all_channels(), name='timeline-game')
+    await timeLineChannel.send("The time line is")
+    await timeLineChannel.send(await timelines.printTimeline())
+
+#prints players hand.
+@bot.command(pass_context=True)
+async def packCards(ctx,*args):
+    timeLineChannel = discord.utils.get(bot.get_all_channels(), name='timeline-game')
+    await timeLineChannel.send("packing cards")
+    await timelines.refeshPlayingDeck()
 
 @bot.command(pass_context=True)
-async def place(ctx,*args):
-    if(args[1] == "before"):
-        timelines.before(ctx.message.author ,args[0], args[2])
-    elif(args[1] == "after"):
-        timelines.after(ctx.message.author ,args[0], args[2])
-
-
+async def clearGame(ctx,*args):
+    timeLineChannel = discord.utils.get(bot.get_all_channels(), name='timeline-game')
+    async for message in timeLineChannel.history(limit=1000):
+        await message.delete()
+        print("deleted message")
 
 
 @bot.group(pass_context=True)
@@ -116,5 +160,18 @@ async def _bot():
     """Is the bot cool?"""
     await bot.say('Yes, the bot is cool.')
 
+
+@bot.command(pass_context=True)
+async def speak(ctx,*args):
+    channel = ctx.channel
+    lines = open("E:\discordBot\TimeLineBot\TimeLineBot\speech").read().splitlines()
+    line = random.choice(lines)
+    await channel.send(line, tts=True)
+
+
+@bot.command(pass_context=True)
+async def test(ctx,*args):
+    channel = ctx.channel
+    await channel.send("ţ̴̥̜͓̗͖̱̘͂̉̽́͂̌͜͜e̶͔̭̘̼̜̞͑̓̍́͜ṡ̸̢̜̤̠̩̊̑̕͘ẗ̶͉̬̝́̈̌͜͝")
 
 bot.run(secrets.token)

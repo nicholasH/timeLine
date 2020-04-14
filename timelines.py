@@ -2,27 +2,28 @@ import random
 
 import discord
 import DBHandler
+from card import Card
+import os
 
 playersDecks = dict()
 inPlayDeck = list()
 discardDeck = list()
 
-startingCards = 3;
-
-
+startingCards = 3
 timeline = list()
 
-
-
-
+cardpackDir = "E:\discordBot\TimeLineBot\cardpacks"
 
 async def test(bot):
     await bot.say('Yes, the bot is cool.')
 
 async def startGame(members):
     global timeline
-    inPlayDeck = await DBHandler.getPlayingDeck()
+    global inPlayDeck
 
+    timeline.clear()
+    inPlayDeck = DBHandler.getPlayingDeck()
+    print(len(inPlayDeck))
     random.shuffle(inPlayDeck)
 
     print(startingCards)
@@ -42,21 +43,34 @@ async def startGame(members):
 async def printTimeline():
     timelineString = ""
     global timeline
-    for x in timeline:
-        timelineString += str(x[1])
+    order = 0
+
+    timelineString += "Before \n"
+    for card in timeline:
+        timelineString += str(order)
+        timelineString += ': '
+        timelineString += str(card.name)
+        timelineString += " "
+        timelineString += str(card.year)
+        timelineString += "BC" if card.bc_ac == -1 else ""
         timelineString += "\n"
+        order += 1
+    timelineString += "After \n"
     return timelineString
 
 
-async def playerHand(player):
+async def printPlayerHand(player):
     hand = ""
+    order = 0
 
-    for x in playersDecks[player]:
-        hand += str(x[0])
+    for card in playersDecks[player]:
+        hand += str(order)
+        hand += ': '
+        hand += str(card.name)
         hand += "\n"
+        order += 1
 
     return hand
-
 
 
 async def orderTimeLine():
@@ -64,55 +78,88 @@ async def orderTimeLine():
     ca = list()
 
     global timeline
-    for event in timeline:
-        if(event[3]=="bc"):
-            bc.append(event)
+    for card in timeline:
+        if(card.bc_ac==-1):
+            bc.append(card)
         else:
-            ca.append(event)
+            ca.append(card)
 
-    bc.sort(key= lambda x: x[1], reverse=True)
-    ca.sort(key= lambda x: x[1])
+    bc.sort(key= lambda x: x.year, reverse=True)
+    ca.sort(key= lambda x: x.year)
 
     timeline = bc + ca
 
-
-
-
-
-
+#attemps to places the cards before the card in the time line.
 async def before(member,handPostion,timeLinePostion):
+    global inPlayDeck
     deck = playersDecks[member]
     card = deck[handPostion]
-    tlCardBefore = timeline[timeLinePostion - 1]
+    try:
+        tlCardBefore = timeline.index(timeLinePostion - 1)
+    except:
+        tlCardBefore = None
+
     tlCard = timeline[timeLinePostion]
 
-    if(tlCardBefore[3] == "bc" and tlCard[3] == "bc" ):
-        if(card[3] != "bc"):
-            return False
-        elif(card[2] > tlCardBefore[2] or card[2] < tlCard[2] ):
-            return False
+    if await isMiddle(card,tlCardBefore,tlCard):
+        del deck[handPostion]
+        timeline.insert(timeLinePostion,card)
+        return True
+    else:
+        playersDecks[member].append(inPlayDeck.pop(0))
+        del deck[handPostion]
+        inPlayDeck.append(card)
+        return False
+
+#attemps to places the cards after the card in the time line.
+async def after(member, handPostion, timeLinePostion):
+    global inPlayDeck
+    print(len(inPlayDeck))
+
+    deck = playersDecks[member]
+    card = deck[handPostion]
+    try:
+        tlCardAfter = timeline.index(timeLinePostion + 1)
+    except:
+        tlCardAfter = None
+
+    tlCard = timeline[timeLinePostion]
+
+    if await isMiddle(card,tlCard,tlCardAfter):
+        del deck[handPostion]
+        timeline.insert((timeLinePostion + 1),card)
+        return True
+
+    else:
+        playersDecks[member].append(inPlayDeck.pop(0))
+        del deck[handPostion]
+        inPlayDeck.append(card)
+        return False
+
+
+async def isMiddle(card:Card ,cardBefore:Card,cardAfter:Card):
+    isMiddleCard = False
+    print(cardBefore,card,cardAfter)
+    if cardAfter is None:
+        if card > cardBefore:
+            isMiddleCard = True
+
+    elif cardBefore is None:
+        if card < cardAfter:
+            isMiddleCard = True
+
+    elif(card > cardBefore and card < cardAfter):
+        isMiddleCard = True
+
+    return isMiddleCard
+
+async def refeshPlayingDeck():
+    DBHandler.destroyDB()
+    DBHandler.createDB()
+
+    for filename in os.listdir(cardpackDir):
+        if filename.endswith(".csv"):
+            DBHandler.addCardpack(cardpackDir+"\\"+filename)
+            continue
         else:
-            return True
-    elif(tlCardBefore[3] == "" and tlCard[3] == ""):
-        if(card[3] != ""):
-            return False
-        elif(card[2] < tlCardBefore[2] or card[2] > tlCard[2] ):
-            return False
-        else:
-            return True
-    elif(tlCardBefore[3] == "bc" and tlCard[3] == ""):
-        if(card[3] == "bc"):
-            if(card[2] > tlCardBefore[2]):
-                return False
-            else:
-                return True
-        elif(card[3] == ""):
-            if(card[2] > tlCard[2]):
-                return False
-            else:
-                return True
-
-
-
-async def after(member, handPostion,timeLinePostion):
-    return
+            continue
